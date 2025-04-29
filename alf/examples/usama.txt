@@ -1,0 +1,4 @@
+python -m alf.bin.play --root_dir=~/HRL/alf-train-jobs/sac-SafetyHopperVelocity-v1/ --conf sac_safety_gymnasium_conf.py
+
+python -m alf.bin.train --root_dir=~/HRL/alf-train-jobs/seditor-BiGlucose --conf seditor_safety_critical.py --conf_param="create_environment.env_name='BiGLucose'"
+

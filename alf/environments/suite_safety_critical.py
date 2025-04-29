@@ -11,6 +11,8 @@ import copy
 import os
 import torch
 
+from alf.environments.safety_critical.envs_critical import Glucose, BiGlucose, CSTR
+
 import alf
 from alf.environments import suite_gym
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -19,7 +21,7 @@ TESTING = 0
 SEED = 0
 
 
-class GymnasiumWrapperVelocity(gym.Wrapper):
+class SafetyCriticalWrapper(gym.Wrapper):
     def __init__(self, env):
 
         def seed(seed):
@@ -31,9 +33,7 @@ class GymnasiumWrapperVelocity(gym.Wrapper):
         super().__init__(env)
 
         self.seed = seed
-        self.num_steps = 1000 + 1
-
-        self.curr_epi_lenght = 0
+        self.num_steps = env.max_steps + 1
 
         self.observation_space = self._convert_gymnasium_to_gym_box(
             self.observation_space
@@ -55,12 +55,10 @@ class GymnasiumWrapperVelocity(gym.Wrapper):
         obs, reward, cost, terminated, truncated, info = self.env.step(action)
         info = {}
 
-        self.curr_epi_lenght += 1
-
-        if self.curr_epi_lenght > self.num_steps:
-            truncated = True
-
-        done = terminated or truncated
+        # done = terminated or truncated
+        done = truncated
+        # if truncated:
+        #     print("------------------------------- TRUNCATGED")
 
         reward = np.array([reward, -cost], dtype=np.float32)
 
@@ -169,12 +167,54 @@ def load(
     alf_env_wrappers: List[Callable] = (),
 ):
 
-    if TESTING:
-        env = safety_gymnasium.make(environment_name, render_mode="human")
-    else:
-        env = safety_gymnasium.make(environment_name)
+    # if env_id == "Glucose":
+    #     env = Glucose()
+    # elif env_id == "BiGlucose":
+    #     env = BiGlucose()
+    # elif env_id == "CSTR":
+    #     env = CSTR()
 
-    env = GymnasiumWrapperVelocity(env)
+    if environment_name == "Glucose":
+        env = Glucose(altered_paras={"n": 0.2, "p2": 0.005, "p3": 5e-6})
+    elif environment_name == "BiGlucose":
+        env = BiGlucose(
+            altered_paras={
+                "D_G": 80,
+                "V_G": 0.18,
+                "k_12": 0.0343,
+                "F_01": 0.0121,
+                "EGP_0": 0.0148,
+                "A_g": 0.8,
+                "t_maxG": 40,
+                "t_maxI": 55,
+                "V_I": 0.12,
+                "k_e": 0.138,
+                "k_a1": 0.0031,
+                "k_a2": 0.0752,
+                "k_a3": 0.0472,
+                "k_b1": 9.114e-06,
+                "k_b2": 6.768e-06,
+                "k_b3": 0.00189,
+                "t_maxN": 32.46,
+                "k_N": 0.62,
+                "V_N": 16.06,
+                "p": 0.016,
+                "S_N": 19600.0,
+                "M_g": 180.16,
+                "BW": 68.5,
+                "N_b": 48.13,
+                "dt": 10,
+            }
+        )
+    elif environment_name == "CSTR":
+        env = CSTR(altered_paras={"alpha": 1.05, "beta": 1.1})
+
+    # if TESTING:
+    #     env = safety_gymnasium.make(environment_name, render_mode="human")
+    # else:
+    #     env = safety_gymnasium.make(environment_name)
+
+    env = SafetyCriticalWrapper(env)
     env = TestLogger(env, env_name=environment_name, seed=SEED, testing=TESTING)
 
     if max_episode_steps is None:
